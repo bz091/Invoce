@@ -115,15 +115,22 @@
     background: var(--orange); font-weight: 800; font-size: .95rem;
     padding: 10px 4px; height: 54px;
   }
-  td { height: 44px; }
-  td input {
-    width: 100%; height: 100%; border: 0; text-align: center; padding: 6px 4px;
+  td { height: 44px; vertical-align: middle; }
+  /* خلايا تكبر مع الكتابة */
+  .cell {
+    display: block; width: 100%; border: 0; text-align: center;
+    padding: 10px 4px; font: inherit; line-height: 1.5; color: inherit;
+    background: transparent; resize: none; overflow: hidden;
+    white-space: pre-wrap; overflow-wrap: anywhere; word-break: normal;
+    min-height: 44px; border-radius: 0;
   }
-  td input:focus-visible { outline-offset: -2px; }
+  .cell:focus-visible { outline: 2px solid #0057d8; outline-offset: -2px; background: #f3f8ff; }
+  th small { display: block; font-size: .7rem; font-weight: 700; margin-top: 2px; }
+  .totals .cur { font-weight: 800; font-size: 1rem; }
   td.n { font-size: .9rem; }
   col.c-n { width: 7%; } col.c-item { width: 30%; } col.c-qty { width: 11%; }
   col.c-price { width: 15%; } col.c-amount { width: 17%; } col.c-note { width: 20%; }
-  td.item input { text-align: right; padding-right: 8px; }
+  td.item .cell { text-align: right; padding-right: 8px; }
 
   /* المجموع والتوقيع */
   .totals {
@@ -149,16 +156,16 @@
   .bar { height: 28px; background: var(--orange); }
 
   @media screen {
-    td input:not([readonly]) { background: #fffaf0; }
-    td input:not([readonly]):hover { background: #fff1d6; }
-    td input::placeholder { color: #b9a47a; font-size: .8rem; }
+    .cell:not([readonly]) { background: #fffaf0; }
+    .cell:not([readonly]):hover { background: #fff1d6; }
+    .cell::placeholder { color: #b9a47a; font-size: .8rem; }
     .hint { text-align: center; font-size: .85rem; color: #555; padding: 10px 28px 0; }
   }
-  @media print { .hint { display: none; } input::placeholder { color: transparent; } }
+  @media print { .hint { display: none; } input::placeholder, textarea::placeholder { color: transparent; } }
 
   /* نسخة التصدير لـ PDF (ثابتة بعرض A4) */
   .sheet.pdf { width: 794px; height: 1123px; min-height: 0; margin: 0; }
-  .sheet.pdf input { background: transparent !important; border-bottom-color: transparent !important; }
+  .sheet.pdf input, .sheet.pdf .cell { background: transparent !important; border-bottom-color: transparent !important; }
 
   /* الطباعة / حفظ PDF */
   @page { size: A4; margin: 0; }
@@ -166,7 +173,7 @@
     body { background: #fff; }
     .toolbar { display: none; }
     .sheet { margin: 0; width: 210mm; height: 297mm; min-height: 0; }
-    input { border-bottom-color: transparent !important; background: transparent !important; }
+    input, .cell { border-bottom-color: transparent !important; background: transparent !important; }
     * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   }
 
@@ -228,7 +235,7 @@
       <thead>
         <tr>
           <th>ت</th><th>المادة</th><th>الكمية</th>
-          <th>سعر المفرد</th><th>المبلغ</th><th>ملاحظات</th>
+          <th>سعر المفرد<small>IQ</small></th><th>المبلغ<small>IQ</small></th><th>ملاحظات</th>
         </tr>
       </thead>
       <tbody id="rows"></tbody>
@@ -243,6 +250,7 @@
     <div class="sum">
       <label for="total">المجموع</label>
       <input id="total" readonly dir="ltr" value="">
+      <span class="cur">IQ</span>
     </div>
   </section>
 
@@ -250,7 +258,7 @@
 
   <footer class="footer">
     <div class="addr">بغداد - حي الجهاد - الشارع التجاري<br>- قرب مجمع المحلات التجارية</div>
-    <div class="phones">07711234567<br>07817654321</div>
+    <div class="phones">07817654321</div>
   </footer>
   <div class="bar"></div>
 </main>
@@ -264,11 +272,11 @@
     var tr = document.createElement('tr');
     tr.innerHTML =
       '<td class="n">' + i + '</td>' +
-      '<td class="item"><input type="text" placeholder="اكتب المادة" aria-label="المادة ' + i + '"></td>' +
-      '<td><input class="qty" inputmode="decimal" placeholder="0" aria-label="الكمية ' + i + '"></td>' +
-      '<td><input class="price" inputmode="decimal" placeholder="0" aria-label="سعر المفرد ' + i + '"></td>' +
-      '<td><input class="amount" readonly tabindex="-1" aria-label="المبلغ ' + i + '"></td>' +
-      '<td><input type="text" aria-label="ملاحظات ' + i + '"></td>';
+      '<td class="item"><textarea class="cell txt" rows="1" placeholder="اكتب المادة" aria-label="المادة ' + i + '"></textarea></td>' +
+      '<td><textarea class="cell num qty" dir="ltr" rows="1" inputmode="decimal" placeholder="0" aria-label="الكمية ' + i + '"></textarea></td>' +
+      '<td><textarea class="cell num price" dir="ltr" rows="1" inputmode="decimal" placeholder="0" aria-label="سعر المفرد ' + i + '"></textarea></td>' +
+      '<td><textarea class="cell num amount" dir="ltr" rows="1" readonly tabindex="-1" aria-label="المبلغ ' + i + '"></textarea></td>' +
+      '<td><textarea class="cell txt" rows="1" aria-label="ملاحظات ' + i + '"></textarea></td>';
     tbody.appendChild(tr);
   }
 
@@ -296,7 +304,62 @@
     });
     document.getElementById('total').value = fmt(total);
   }
-  document.getElementById('rows').addEventListener('input', recalc);
+
+  // تكبير الخلية مع الكتابة
+  function autosize(el) {
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  }
+  // الأرقام: نصغّر الخط شوية، وإذا بعدها كبيرة ينزل سطر
+  function fitNum(el) {
+    el.style.whiteSpace = 'pre';
+    el.style.overflowWrap = 'normal';
+    var size = 16;
+    el.style.fontSize = size + 'px';
+    while (el.scrollWidth > el.clientWidth && size > 10) {
+      size--; el.style.fontSize = size + 'px';
+    }
+    if (el.scrollWidth > el.clientWidth) {
+      el.style.whiteSpace = 'pre-wrap';
+      el.style.overflowWrap = 'anywhere';
+    }
+    if (el.tagName === 'TEXTAREA') autosize(el);
+  }
+  function layoutAll() {
+    document.querySelectorAll('#rows .txt').forEach(autosize);
+    document.querySelectorAll('#rows .num').forEach(fitNum);
+  }
+
+  // فواصل الألوف أثناء الكتابة (للسعر)
+  function liveComma(el) {
+    var map = { '٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9' };
+    var pos = el.selectionStart;
+    function clean(t) {
+      t = t.replace(/[٠-٩]/g, function (d) { return map[d]; });
+      return t.replace(/[^0-9.]/g, '');
+    }
+    var before = clean(el.value.slice(0, pos)).length;
+    var c = clean(el.value);
+    var dot = c.indexOf('.');
+    var ip = dot === -1 ? c : c.slice(0, dot);
+    var dp = dot === -1 ? '' : c.slice(dot + 1).replace(/\./g, '');
+    ip = ip.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    var out = ip + (dot === -1 ? '' : '.' + dp);
+    el.value = out;
+    var count = 0, np = 0;
+    while (np < out.length && count < before) {
+      if (out.charAt(np) !== ',') count++;
+      np++;
+    }
+    try { el.setSelectionRange(np, np); } catch (e) {}
+  }
+
+  document.getElementById('rows').addEventListener('input', function (e) {
+    if (e.target.classList.contains('price')) liveComma(e.target);
+    recalc();
+    layoutAll();
+  });
+  window.addEventListener('resize', layoutAll);
 
   // رقم الفاتورة التالي (يُحفظ إذا المتصفح يسمح)
   function loadNo() {
@@ -350,10 +413,20 @@
       ci[i].setAttribute('value', si[i].value);
       ci[i].removeAttribute('placeholder');
     }
+    // الخلايا النصية -> عناصر عادية حتى تطلع كاملة بالـ PDF
+    var st = src.querySelectorAll('textarea'), ct = clone.querySelectorAll('textarea');
+    for (var j = 0; j < st.length; j++) {
+      var d = document.createElement('div');
+      d.className = ct[j].className;
+      d.textContent = st[j].value;
+      d.style.whiteSpace = 'pre-wrap';
+      ct[j].parentNode.replaceChild(d, ct[j]);
+    }
     var wrap = document.createElement('div');
     wrap.style.cssText = 'position:fixed;left:0;top:0;width:794px;height:1123px;overflow:hidden;z-index:-1;direction:rtl;background:#fff';
     wrap.appendChild(clone);
     document.body.appendChild(wrap);
+    wrap.querySelectorAll('.num').forEach(fitNum);
 
     function done() { document.body.removeChild(wrap); resetBtn(); }
 
@@ -380,14 +453,16 @@
   // فاتورة جديدة
   document.getElementById('newBtn').addEventListener('click', function () {
     if (!confirm('تمسح البيانات وتبدأ فاتورة جديدة؟')) return;
-    document.querySelectorAll('#rows input').forEach(function (i) { i.value = ''; });
+    document.querySelectorAll('#rows textarea').forEach(function (i) { i.value = ''; });
     document.getElementById('client').value = '';
     document.getElementById('sign').value = '';
     invNo.value = nextNo(invNo.value);
     saveNo(invNo.value);
     setToday();
     recalc();
+    layoutAll();
   });
+  layoutAll();
 </script>
 </body>
 </html>
